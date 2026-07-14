@@ -13,17 +13,22 @@ const PORT = process.env.PORT || 3001;
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
 const app = (0, express_1.default)();
 app.use((0, cors_1.default)({
-    origin: FRONTEND_URL,
+    origin: "*",
     methods: ["GET", "POST"],
-    credentials: true
+    credentials: false
 }));
+// Health check endpoint
+app.get("/", (_req, res) => {
+    res.json({ status: "ok", service: "netchat-backend" });
+});
 const server = http_1.default.createServer(app);
 const io = new socket_io_1.Server(server, {
     cors: {
-        origin: FRONTEND_URL,
+        origin: "*",
         methods: ["GET", "POST"],
-        credentials: true
-    }
+    },
+    transports: ["polling", "websocket"],
+    allowEIO3: true
 });
 // Setup Multer for in-memory uploads
 const upload = (0, multer_1.default)({

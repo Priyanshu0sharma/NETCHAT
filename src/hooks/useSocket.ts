@@ -96,7 +96,7 @@ export function useSocket() {
   useEffect(() => {
     const newSocket = io(SOCKET_SERVER_URL, {
       autoConnect: true,
-      transports: ["websocket"],
+      transports: ["polling", "websocket"],
     });
 
     setSocket(newSocket);

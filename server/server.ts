@@ -10,22 +10,24 @@ const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
 
 const app = express();
 app.use(cors({
-  origin: (origin, callback) => {
-    callback(null, origin || true);
-  },
+  origin: "*",
   methods: ["GET", "POST"],
-  credentials: true
+  credentials: false
 }));
+
+// Health check endpoint
+app.get("/", (_req, res) => {
+  res.json({ status: "ok", service: "netchat-backend" });
+});
 
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: (origin, callback) => {
-      callback(null, origin || true);
-    },
+    origin: "*",
     methods: ["GET", "POST"],
-    credentials: true
-  }
+  },
+  transports: ["polling", "websocket"],
+  allowEIO3: true
 });
 
 // Setup Multer for in-memory uploads
