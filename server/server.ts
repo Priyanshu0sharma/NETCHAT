@@ -10,7 +10,9 @@ const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
 
 const app = express();
 app.use(cors({
-  origin: FRONTEND_URL,
+  origin: (origin, callback) => {
+    callback(null, origin || true);
+  },
   methods: ["GET", "POST"],
   credentials: true
 }));
@@ -18,7 +20,9 @@ app.use(cors({
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: FRONTEND_URL,
+    origin: (origin, callback) => {
+      callback(null, origin || true);
+    },
     methods: ["GET", "POST"],
     credentials: true
   }
