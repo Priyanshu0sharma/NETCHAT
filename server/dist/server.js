@@ -375,5 +375,15 @@ io.on("connection", (socket) => {
 server.listen(PORT, () => {
     console.log(`===============================================`);
     console.log(`Netchat Backend listening on http://localhost:${PORT}`);
+    console.log(`PORT env: ${process.env.PORT}`);
+    console.log(`NODE_ENV: ${process.env.NODE_ENV}`);
+    console.log(`Socket.IO attached: ${!!io}`);
+    console.log(`Socket.IO engine: ${!!io.engine}`);
+    console.log(`Express routes:`);
+    app._router?.stack?.forEach((r) => {
+        if (r.route) {
+            console.log(`  ${Object.keys(r.route.methods).join(',')} ${r.route.path}`);
+        }
+    });
     console.log(`===============================================`);
 });
