@@ -1,36 +1,63 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Netchat (netchat)
 
-## Getting Started
+A highly premium, modern, temporary, anonymous global messenger built with **Next.js**, **TypeScript**, **Tailwind CSS**, and **Socket.IO**. 
 
-First, run the development server:
+This is **NOT** a random matching application. It is a **temporary username-based messenger**. Users can chat instantly with anyone in the world if they know that person's unique, temporary username.
 
+---
+
+## 🔒 Security & Privacy Core Features
+
+- **No Persistence**: Everything is kept strictly in-memory (RAM). No database, no local storage.
+- **Auto Cleanup**: The moment a conversation ends and both users disconnect, all text logs and file buffers are immediately wiped from the server's memory.
+- **Client-Side End-to-End Encryption (E2EE)**: 
+  - Elliptic-curve Diffie-Hellman (ECDH P-256) ephemeral key exchange triggers on conversation start.
+  - Direct message payloads, file names, and file binary contents are encrypted in-browser using AES-GCM 256.
+  - The server only acts as a routing node and has zero knowledge of the message content or file details.
+- **Secure File Sharing**: Support for Images, PDFs, ZIPs, Docs, etc., with full encryption in transit, upload progress tracking, download callbacks, and in-browser previews for images and PDFs.
+
+---
+
+## 🛠️ Architecture
+
+- **Frontend**: Next.js App Router, Tailwind CSS v4, Framer Motion, and Web Audio API synthesized chimes.
+- **Backend**: Node.js + Express + Socket.IO server running completely in-memory.
+
+---
+
+## 💻 Local Setup & Development
+
+### 1. Start the Backend Server
 ```bash
+cd server
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# The server will start on http://localhost:3001
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Start the Frontend
+```bash
+# In the root project directory
+npm install
+npm run dev
+# The frontend will start on http://localhost:3000
+```
+Open two browser windows (one standard and one incognito) at `http://localhost:3000` to test local secure chat.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🌐 Public Deployments (Make it Online)
 
-## Learn More
+To allow users in India, America, Europe, etc., to connect and chat:
 
-To learn more about Next.js, take a look at the following resources:
+### 1. Backend Server Deployment
+Deploy the backend Node.js server on **Railway**, **Render**, **Fly.io**, or any cloud VPS:
+- Set up a dynamic port using the environment variable `PORT` (handled automatically).
+- Configure the **Environment Variable** `FRONTEND_URL` to point to your live Next.js production address (e.g. `https://netchat-frontend.vercel.app`).
+- Set build command: `npm run build`
+- Set start command: `npm start`
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### 2. Frontend Next.js Deployment
+Deploy the frontend Next.js application on **Vercel** or **Netlify**:
+- Add the **Environment Variable** `NEXT_PUBLIC_SOCKET_SERVER_URL` pointing to your deployed Node.js backend address (e.g. `https://netchat-backend.up.railway.app`).
+- Ensure it compiles and deploys using standard Next.js parameters.

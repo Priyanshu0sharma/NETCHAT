@@ -1,26 +1,200 @@
 @import "tailwindcss";
 
+@theme {
+  --color-bg-dark: #07080e;
+  --color-glass-bg: rgba(13, 15, 30, 0.45);
+  --color-glass-border: rgba(255, 255, 255, 0.08);
+  --color-glass-hover: rgba(255, 255, 255, 0.04);
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #06070b;
+  --foreground: #f3f4f6;
+  --card-bg: rgba(10, 11, 18, 0.6);
+  --border-color: rgba(255, 255, 255, 0.08);
+  
+  /* Theme Accents (Default Violet Eclipse) */
+  --accent: 168, 85, 247; /* rgb values */
+  --accent-secondary: 236, 72, 153; /* pink */
+  --accent-rgb: 168, 85, 247;
+  --accent-secondary-rgb: 236, 72, 153;
+  --radius: 1rem;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* Theme presets mapping to RGB variables */
+[data-theme="violet"] {
+  --accent: 168, 85, 247;
+  --accent-secondary: 236, 72, 153;
+  --accent-rgb: 168, 85, 247;
+  --accent-secondary-rgb: 236, 72, 153;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+[data-theme="sapphire"] {
+  --accent: 59, 130, 246;
+  --accent-secondary: 6, 182, 212;
+  --accent-rgb: 59, 130, 246;
+  --accent-secondary-rgb: 6, 182, 212;
+}
+
+[data-theme="emerald"] {
+  --accent: 16, 185, 129;
+  --accent-secondary: 20, 184, 166;
+  --accent-rgb: 16, 185, 129;
+  --accent-secondary-rgb: 20, 184, 166;
+}
+
+[data-theme="sunset"] {
+  --accent: 239, 68, 68;
+  --accent-secondary: 249, 115, 22;
+  --accent-rgb: 239, 68, 68;
+  --accent-secondary-rgb: 249, 115, 22;
+}
+
+[data-theme="neon"] {
+  --accent: 6, 182, 212;
+  --accent-secondary: 168, 85, 247;
+  --accent-rgb: 6, 182, 212;
+  --accent-secondary-rgb: 168, 85, 247;
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Outfit', sans-serif;
+  overflow-x: hidden;
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(var(--accent-rgb), 0.12) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(var(--accent-secondary-rgb), 0.1) 0px, transparent 50%);
+  background-attachment: fixed;
+}
+
+/* Glassmorphism Classes */
+.glass-panel {
+  background: rgba(10, 11, 20, 0.45);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-panel-heavy {
+  background: rgba(10, 11, 20, 0.8);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-card:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(var(--accent-rgb), 0.3);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+}
+
+.glass-input {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.75rem;
+  color: #fff;
+  transition: all 0.2s ease;
+}
+
+.glass-input:focus {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(var(--accent-rgb), 0.5);
+  outline: none;
+  box-shadow: 0 0 15px rgba(var(--accent-rgb), 0.25);
+}
+
+.accent-glow {
+  box-shadow: 0 0 30px rgba(var(--accent-rgb), 0.35);
+}
+
+.accent-text-gradient {
+  background: linear-gradient(135deg, rgb(var(--accent-rgb)), rgb(var(--accent-secondary-rgb)));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.accent-bg-gradient {
+  background: linear-gradient(135deg, rgb(var(--accent-rgb)), rgb(var(--accent-secondary-rgb)));
+}
+
+.accent-border-gradient {
+  border-image: linear-gradient(135deg, rgb(var(--accent-rgb)), rgb(var(--accent-secondary-rgb))) 1;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--accent-rgb), 0.4);
+}
+
+/* Ambient animations */
+@keyframes float {
+  0% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-10px) rotate(180deg); }
+  100% { transform: translateY(0px) rotate(360deg); }
+}
+
+.ambient-orb-1 {
+  width: 300px;
+  height: 300px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(var(--accent-rgb), 0.2) 0%, transparent 70%);
+  filter: blur(60px);
+  position: absolute;
+  top: 15%;
+  left: 10%;
+  z-index: -1;
+  animation: float 20s ease-in-out infinite alternate;
+}
+
+.ambient-orb-2 {
+  width: 400px;
+  height: 400px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(var(--accent-secondary-rgb), 0.15) 0%, transparent 70%);
+  filter: blur(80px);
+  position: absolute;
+  bottom: 10%;
+  right: 5%;
+  z-index: -1;
+  animation: float 25s ease-in-out infinite alternate-reverse;
+}
+
+/* Dot typing indicator animation */
+@keyframes bounce-dot {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+.dot-typing {
+  animation: bounce-dot 1s infinite ease-in-out;
+}
+.dot-typing:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.dot-typing:nth-child(3) {
+  animation-delay: 0.4s;
 }
