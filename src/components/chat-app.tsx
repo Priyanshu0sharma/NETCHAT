@@ -59,6 +59,9 @@ export default function ChatApp() {
   const socketContext = useSocket();
   const {
     connected,
+    connectError,
+    serverUrl,
+    retryConnection,
     username,
     usernameStatus,
     activeChatUser,
@@ -326,10 +329,37 @@ export default function ChatApp() {
             <p className="text-gray-400 text-sm mb-8 font-light">
               Secure. In-Memory. Temporary Global Messenger.
             </p>
-            <div className="flex items-center gap-3 text-sm text-gray-500 glass-card px-4 py-2 rounded-full">
-              <Loader2 className="w-4 h-4 animate-spin text-purple-500" />
-              <span>{connected ? "Securing connection..." : "Connecting to global network..."}</span>
-            </div>
+            {connectError ? (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="w-full mt-4 p-5 rounded-2xl bg-red-500/10 border border-red-500/20 text-left relative overflow-hidden"
+              >
+                <div className="flex items-center gap-2.5 text-red-400 font-semibold mb-2 text-sm">
+                  <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                  <span>Connection Failed</span>
+                </div>
+                <p className="text-gray-300 text-xs leading-relaxed mb-4">
+                  Unable to connect to the signaling server. If you are running locally, make sure your backend is running. For live deployments, configure the <code className="bg-black/40 px-1 py-0.5 rounded text-pink-400 font-mono text-[10px]">NEXT_PUBLIC_SOCKET_SERVER_URL</code> environment variable in your frontend project dashboard.
+                </p>
+                <div className="text-[10px] text-gray-500 mb-4 font-mono break-all bg-black/30 p-2.5 rounded-lg border border-white/5">
+                  <span className="text-gray-400 block font-bold mb-1 uppercase tracking-wider text-[9px]">Attempted Endpoint:</span>
+                  {serverUrl}
+                </div>
+                <button
+                  type="button"
+                  onClick={retryConnection}
+                  className="w-full py-2.5 rounded-xl bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 active:scale-[0.98] transition-all text-white font-semibold text-xs flex items-center justify-center gap-2 shadow-lg hover:shadow-red-500/20"
+                >
+                  Retry Connection
+                </button>
+              </motion.div>
+            ) : (
+              <div className="flex items-center gap-3 text-sm text-gray-500 glass-card px-4 py-2 rounded-full">
+                <Loader2 className="w-4 h-4 animate-spin text-purple-500" />
+                <span>{connected ? "Securing connection..." : "Connecting to global network..."}</span>
+              </div>
+            )}
           </motion.div>
         )}
 

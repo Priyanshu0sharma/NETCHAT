@@ -42,6 +42,7 @@ const SOCKET_SERVER_URL = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || "http://l
 export function useSocket() {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [connected, setConnected] = useState(false);
+  const [connectError, setConnectError] = useState<string | null>(null);
   const [username, setUsername] = useState<string>("");
   const [usernameStatus, setUsernameStatus] = useState<"idle" | "validating" | "taken" | "available">("idle");
   
@@ -102,6 +103,7 @@ export function useSocket() {
 
     newSocket.on("connect", () => {
       setConnected(true);
+      setConnectError(null);
       // If we already had a username, register it. Otherwise, request a random one.
       const storedName = sessionStorage.getItem("netchat_username");
       newSocket.emit("register-username", { requested: storedName || null });
@@ -109,6 +111,10 @@ export function useSocket() {
 
     newSocket.on("disconnect", () => {
       setConnected(false);
+    });
+
+    newSocket.on("connect_error", (err) => {
+      setConnectError(err.message || "Failed to connect to signaling server.");
     });
 
     // Receive assigned username (could be a generated random one or the accepted custom one)
@@ -696,8 +702,18 @@ export function useSocket() {
     }
   };
 
+  const retryConnection = () => {
+    if (socket) {
+      setConnectError(null);
+      socket.connect();
+    }
+  };
+
   return {
     connected,
+    connectError,
+    serverUrl: SOCKET_SERVER_URL,
+    retryConnection,
     username,
     usernameStatus,
     activeChatUser,
