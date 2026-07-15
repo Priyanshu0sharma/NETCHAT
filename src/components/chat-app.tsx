@@ -220,14 +220,14 @@ export default function ChatApp() {
 
   const processAndSendFile = async (file: File) => {
     setUploadProgress(0);
-    const success = await sendFile(file, (progress) => {
+    const result = await sendFile(file, (progress) => {
       setUploadProgress(progress);
     }, replyTo?.id);
     
     setUploadProgress(null);
     setReplyTo(null);
-    if (!success) {
-      alert("Failed to encrypt or upload file. Please try again.");
+    if (!result.success) {
+      alert(`Failed to encrypt or upload file: ${result.error || "Please try again."}`);
     }
   };
 

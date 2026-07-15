@@ -458,8 +458,8 @@ export function useSocket() {
     file: File,
     onProgress: (progress: number) => void,
     replyToId?: string
-  ): Promise<boolean> => {
-    if (!socket) return false;
+  ): Promise<{ success: boolean; error?: string }> => {
+    if (!socket) return { success: false, error: "Not connected to server" };
     const messageId = Math.random().toString(36).substring(2, 11);
     const timestamp = Date.now();
 
@@ -492,15 +492,15 @@ export function useSocket() {
                 resolve({ success: false, error: "Failed to parse upload response" });
               }
             } else {
-              resolve({ success: false, error: `Upload failed with status ${xhr.status}` });
+              resolve({ success: false, error: `Upload failed with status ${xhr.status} from ${SOCKET_SERVER_URL}/upload` });
             }
           };
-          xhr.onerror = () => resolve({ success: false, error: "Network error during upload" });
+          xhr.onerror = () => resolve({ success: false, error: `Network error during upload to ${SOCKET_SERVER_URL}/upload` });
           xhr.send(formData);
         });
 
         if (!uploadResult.success || !uploadResult.fileId) {
-          return false;
+          return { success: false, error: uploadResult.error || "Upload failed" };
         }
 
         onProgress(95);
@@ -538,10 +538,10 @@ export function useSocket() {
 
         setMessages((prev) => [...prev, newMsg]);
         onProgress(100);
-        return true;
+        return { success: true };
       } catch (err) {
         console.error("Group file upload failed", err);
-        return false;
+        return { success: false, error: err instanceof Error ? err.message : String(err) };
       }
     } else if (activeChatUser && sharedKeyRef.current) {
       // Private chat E2EE file upload
@@ -583,15 +583,15 @@ export function useSocket() {
                 resolve({ success: false, error: "Failed to parse upload response" });
               }
             } else {
-              resolve({ success: false, error: `Upload failed with status ${xhr.status}` });
+              resolve({ success: false, error: `Upload failed with status ${xhr.status} from ${SOCKET_SERVER_URL}/upload` });
             }
           };
-          xhr.onerror = () => resolve({ success: false, error: "Network error during upload" });
+          xhr.onerror = () => resolve({ success: false, error: `Network error during upload to ${SOCKET_SERVER_URL}/upload` });
           xhr.send(formData);
         });
 
         if (!uploadResult.success || !uploadResult.fileId) {
-          return false;
+          return { success: false, error: uploadResult.error || "Upload failed" };
         }
 
         onProgress(95);
@@ -633,13 +633,13 @@ export function useSocket() {
 
         setMessages((prev) => [...prev, newMsg]);
         onProgress(100);
-        return true;
+        return { success: true };
       } catch (err) {
         console.error("E2EE file upload/encryption failed", err);
-        return false;
+        return { success: false, error: err instanceof Error ? err.message : String(err) };
       }
     }
-    return false;
+    return { success: false, error: "Encryption key not derived or chat user offline" };
   };
 
   // Download and decrypt a file (or download directly for group files)
