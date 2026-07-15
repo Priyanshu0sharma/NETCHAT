@@ -253,7 +253,7 @@ export default function ChatApp() {
   const handleDownloadFile = async (msg: Message) => {
     if (!msg.file || msg.file.localUrl) return;
 
-    const fileId = msg.file.fileId;
+    const fileId = msg.file.fileId || msg.id;
     setDownloadProgress((prev) => ({ ...prev, [fileId]: 0 }));
 
     const localUrl = await downloadAndDecryptFile(
@@ -828,13 +828,13 @@ export default function ChatApp() {
                                     {!msg.file.localUrl ? (
                                       <button
                                         onClick={() => handleDownloadFile(msg)}
-                                        disabled={downloadProgress[msg.file.fileId] !== undefined}
+                                        disabled={downloadProgress[msg.file.fileId || msg.id] !== undefined}
                                         className="w-full py-2 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-white text-xs font-bold transition flex items-center justify-center gap-2"
                                       >
-                                        {downloadProgress[msg.file.fileId] !== undefined ? (
+                                        {downloadProgress[msg.file.fileId || msg.id] !== undefined ? (
                                           <>
                                             <Loader2 className="w-4 h-4 animate-spin text-purple-400" />
-                                            <span>Decrypting {downloadProgress[msg.file.fileId]}%</span>
+                                            <span>Decrypting {downloadProgress[msg.file.fileId || msg.id]}%</span>
                                           </>
                                         ) : (
                                           <>

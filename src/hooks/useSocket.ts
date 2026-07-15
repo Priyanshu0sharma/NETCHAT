@@ -21,13 +21,15 @@ export interface Message {
   receiver: string; // username, "group:roomId", or "system"
   text?: string;
   file?: {
-    fileId: string;
+    fileId?: string;
+    encryptedData?: string;
+    rawData?: string;
     encryptedName?: string;
     nameIv?: string;
     encryptedType?: string;
     typeIv?: string;
     size: number;
-    iv?: string; // missing for unencrypted group files
+    iv?: string;
     decryptedName?: string;
     decryptedType?: string;
     localUrl?: string;
@@ -225,10 +227,19 @@ export function useSocket() {
         if (msg.file) {
           const decryptedName = await decryptMessage(sharedKeyRef.current, msg.file.encryptedName, msg.file.nameIv || msg.file.iv || msg.iv);
           const decryptedType = await decryptMessage(sharedKeyRef.current, msg.file.encryptedType, msg.file.typeIv || msg.file.iv || msg.iv);
+          
+          let localUrl = "";
+          if (msg.file.encryptedData) {
+            const decryptedBuffer = await decryptFileBuffer(sharedKeyRef.current, msg.file.encryptedData, msg.file.iv);
+            const blob = new Blob([decryptedBuffer], { type: decryptedType || "application/octet-stream" });
+            localUrl = URL.createObjectURL(blob);
+          }
+
           fileData = {
             ...msg.file,
             decryptedName,
             decryptedType,
+            localUrl,
           };
         }
 
@@ -255,12 +266,26 @@ export function useSocket() {
 
     // Receive group message
     newSocket.on("group-message", (msg: { id: string; roomId: string; sender: string; text?: string; file?: any; timestamp: number; replyTo?: string }) => {
+      let fileData = msg.file;
+      if (msg.file && msg.file.rawData) {
+        try {
+          const fileBuffer = base64ToBuffer(msg.file.rawData);
+          const blob = new Blob([fileBuffer], { type: msg.file.decryptedType || "application/octet-stream" });
+          fileData = {
+            ...msg.file,
+            localUrl: URL.createObjectURL(blob)
+          };
+        } catch (err) {
+          console.error("Failed to unpack group file", err);
+        }
+      }
+
       const newMsg: Message = {
         id: msg.id,
         sender: msg.sender,
         receiver: "group:" + msg.roomId,
         text: msg.text,
-        file: msg.file,
+        file: fileData,
         timestamp: msg.timestamp,
         status: "delivered",
         replyTo: msg.replyTo,
@@ -453,7 +478,7 @@ export function useSocket() {
     }
   };
 
-  // File Upload handler (E2EE for private, TLS/WSS for group)
+  // File Upload handler (direct WebSocket routing - no REST server storage)
   const sendFile = async (
     file: File,
     onProgress: (progress: number) => void,
@@ -464,53 +489,20 @@ export function useSocket() {
     const timestamp = Date.now();
 
     if (activeGroupRoom) {
-      // Group File Share (sent unencrypted via TLS/WSS, buffer holds only in RAM)
+      // Group File Share (sent unencrypted via WebSocket, buffered in browser RAM)
       try {
-        onProgress(10);
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("sender", username);
-        formData.append("receiver", "group:" + activeGroupRoom);
+        onProgress(20);
+        const fileBuffer = await file.arrayBuffer();
+        onProgress(50);
+        const rawDataBase64 = bufferToBase64(fileBuffer);
+        onProgress(80);
 
-        const xhr = new XMLHttpRequest();
-        xhr.open("POST", `${SOCKET_SERVER_URL}/upload`);
-
-        xhr.upload.onprogress = (e) => {
-          if (e.lengthComputable) {
-            const uploadPercent = Math.round((e.loaded / e.total) * 80) + 10;
-            onProgress(uploadPercent);
-          }
-        };
-
-        const uploadResult = await new Promise<{ success: boolean; fileId?: string; error?: string }>((resolve) => {
-          xhr.onload = () => {
-            if (xhr.status === 200) {
-              try {
-                const res = JSON.parse(xhr.responseText);
-                resolve({ success: true, fileId: res.fileId });
-              } catch (err) {
-                resolve({ success: false, error: "Failed to parse upload response" });
-              }
-            } else {
-              resolve({ success: false, error: `Upload failed with status ${xhr.status} from ${SOCKET_SERVER_URL}/upload` });
-            }
-          };
-          xhr.onerror = () => resolve({ success: false, error: `Network error during upload to ${SOCKET_SERVER_URL}/upload` });
-          xhr.send(formData);
-        });
-
-        if (!uploadResult.success || !uploadResult.fileId) {
-          return { success: false, error: uploadResult.error || "Upload failed" };
-        }
-
-        onProgress(95);
-
-        // Send group room reference
+        // Send group room payload
         socket.emit("group-message", {
           id: messageId,
           roomId: activeGroupRoom,
           file: {
-            fileId: uploadResult.fileId,
+            rawData: rawDataBase64,
             decryptedName: file.name,
             decryptedType: file.type,
             size: file.size,
@@ -524,7 +516,7 @@ export function useSocket() {
           sender: username,
           receiver: "group:" + activeGroupRoom,
           file: {
-            fileId: uploadResult.fileId,
+            rawData: rawDataBase64,
             decryptedName: file.name,
             decryptedType: file.type,
             size: file.size,
@@ -540,68 +532,29 @@ export function useSocket() {
         onProgress(100);
         return { success: true };
       } catch (err) {
-        console.error("Group file upload failed", err);
+        console.error("Group file sharing failed", err);
         return { success: false, error: err instanceof Error ? err.message : String(err) };
       }
     } else if (activeChatUser && sharedKeyRef.current) {
-      // Private chat E2EE file upload
+      // Private chat E2EE file share (completely peer-routed via Socket.IO)
       try {
-        const fileBuffer = await file.arrayBuffer();
-
         onProgress(10);
-        const { encryptedData, iv: fileIv } = await encryptFileBuffer(sharedKeyRef.current, fileBuffer);
+        const fileBuffer = await file.arrayBuffer();
         onProgress(30);
+
+        const { encryptedData, iv: fileIv } = await encryptFileBuffer(sharedKeyRef.current, fileBuffer);
+        onProgress(60);
 
         const nameEnc = await encryptMessage(sharedKeyRef.current, file.name);
         const typeEnc = await encryptMessage(sharedKeyRef.current, file.type);
-        onProgress(40);
-
-        const encryptedBlob = new Blob([base64ToBuffer(encryptedData)], { type: "application/octet-stream" });
-        
-        const formData = new FormData();
-        formData.append("file", encryptedBlob, "encrypted_blob");
-        formData.append("sender", username);
-        formData.append("receiver", activeChatUser);
-
-        const xhr = new XMLHttpRequest();
-        xhr.open("POST", `${SOCKET_SERVER_URL}/upload`);
-
-        xhr.upload.onprogress = (e) => {
-          if (e.lengthComputable) {
-            const uploadPercent = Math.round((e.loaded / e.total) * 50) + 40;
-            onProgress(uploadPercent);
-          }
-        };
-
-        const uploadResult = await new Promise<{ success: boolean; fileId?: string; error?: string }>((resolve) => {
-          xhr.onload = () => {
-            if (xhr.status === 200) {
-              try {
-                const res = JSON.parse(xhr.responseText);
-                resolve({ success: true, fileId: res.fileId });
-              } catch (err) {
-                resolve({ success: false, error: "Failed to parse upload response" });
-              }
-            } else {
-              resolve({ success: false, error: `Upload failed with status ${xhr.status} from ${SOCKET_SERVER_URL}/upload` });
-            }
-          };
-          xhr.onerror = () => resolve({ success: false, error: `Network error during upload to ${SOCKET_SERVER_URL}/upload` });
-          xhr.send(formData);
-        });
-
-        if (!uploadResult.success || !uploadResult.fileId) {
-          return { success: false, error: uploadResult.error || "Upload failed" };
-        }
-
-        onProgress(95);
+        onProgress(80);
 
         socket.emit("message", {
           id: messageId,
           to: activeChatUser,
           iv: nameEnc.iv,
           file: {
-            fileId: uploadResult.fileId,
+            encryptedData: encryptedData,
             encryptedName: nameEnc.ciphertext,
             nameIv: nameEnc.iv,
             encryptedType: typeEnc.ciphertext,
@@ -618,7 +571,7 @@ export function useSocket() {
           sender: username,
           receiver: activeChatUser,
           file: {
-            fileId: uploadResult.fileId,
+            encryptedData: encryptedData,
             encryptedName: nameEnc.ciphertext,
             nameIv: nameEnc.iv,
             encryptedType: typeEnc.ciphertext,
@@ -639,7 +592,7 @@ export function useSocket() {
         onProgress(100);
         return { success: true };
       } catch (err) {
-        console.error("E2EE file upload/encryption failed", err);
+        console.error("E2EE file share failed", err);
         return { success: false, error: err instanceof Error ? err.message : String(err) };
       }
     }

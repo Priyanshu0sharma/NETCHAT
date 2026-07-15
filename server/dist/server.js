@@ -7,7 +7,6 @@ const express_1 = __importDefault(require("express"));
 const http_1 = __importDefault(require("http"));
 const socket_io_1 = require("socket.io");
 const cors_1 = __importDefault(require("cors"));
-const multer_1 = __importDefault(require("multer"));
 const uuid_1 = require("uuid");
 const PORT = process.env.PORT || 3001;
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
@@ -28,18 +27,11 @@ const io = new socket_io_1.Server(server, {
         methods: ["GET", "POST"],
     },
     transports: ["polling", "websocket"],
-    allowEIO3: true
-});
-// Setup Multer for in-memory uploads
-const upload = (0, multer_1.default)({
-    storage: multer_1.default.memoryStorage(),
-    limits: {
-        fileSize: 100 * 1024 * 1024 // 100 MB file limit
-    }
+    allowEIO3: true,
+    maxHttpBufferSize: 1e8 // 100 MB file limit for direct WebSocket transfers
 });
 const onlineUsers = new Map(); // socketId -> session
 const usernameToSocket = new Map(); // username -> socketId
-const tempFiles = new Map(); // fileId -> TempFile
 // Helper to generate a unique random username
 function generateRandomUsername() {
     const words = ["shadow", "ghost", "alpha", "cyber", "rogue", "nexus", "echo", "blaze", "titan", "wolf", "raven", "neon", "byte", "node", "link", "code", "sync", "wave"];
@@ -71,69 +63,6 @@ function broadcastOnlineUsers() {
     io.emit("update-online-users", { users });
 }
 // Garbage collection for temp files: delete files if both participants are offline
-function cleanUpOrphanedFiles(username) {
-    for (const [fileId, file] of tempFiles.entries()) {
-        if (file.sender === username || file.receiver === username || file.receiver.startsWith("group:")) {
-            if (file.receiver.startsWith("group:")) {
-                const roomId = file.receiver.replace("group:", "");
-                // If there are no members online in this group room, delete group files
-                if (getGroupMembers(roomId).length === 0) {
-                    tempFiles.delete(fileId);
-                    console.log(`[Memory GC] Deleted group room file ${fileId} (${file.originalname})`);
-                }
-            }
-            else {
-                const otherUser = file.sender === username ? file.receiver : file.sender;
-                // If the other user is offline, delete the file since both are now offline/disconnected
-                if (!usernameToSocket.has(otherUser)) {
-                    tempFiles.delete(fileId);
-                    console.log(`[Memory GC] Deleted orphaned file ${fileId} (${file.originalname})`);
-                }
-            }
-        }
-    }
-}
-// POST: Upload endpoint (saves binary in RAM)
-app.post("/upload", upload.single("file"), (req, res) => {
-    if (!req.file) {
-        res.status(400).json({ error: "No file uploaded" });
-        return;
-    }
-    const fileId = (0, uuid_1.v4)();
-    const sender = req.body.sender || "";
-    const receiver = req.body.receiver || ""; // username or group:roomId
-    if (!sender || !receiver) {
-        res.status(400).json({ error: "Sender and receiver are required" });
-        return;
-    }
-    const newFile = {
-        fileId,
-        buffer: req.file.buffer,
-        originalname: req.file.originalname,
-        mimetype: req.file.mimetype,
-        size: req.file.size,
-        sender,
-        receiver,
-        timestamp: Date.now(),
-    };
-    tempFiles.set(fileId, newFile);
-    console.log(`[File Saved to RAM] ID: ${fileId}, Size: ${newFile.size} bytes, Sender: ${sender}, Receiver: ${receiver}`);
-    res.status(200).json({ fileId });
-});
-// GET: Download endpoint (streams binary from RAM)
-app.get("/download/:fileId", (req, res) => {
-    const fileId = req.params.fileId;
-    const file = tempFiles.get(fileId);
-    if (!file) {
-        res.status(404).send("File not found or has been deleted");
-        return;
-    }
-    // Set file headers and stream the binary buffer
-    res.setHeader("Content-Length", file.size);
-    res.setHeader("Content-Type", file.mimetype || "application/octet-stream");
-    res.setHeader("Content-Disposition", `attachment; filename="${file.originalname}"`);
-    res.send(file.buffer);
-});
 // Socket.IO event handler
 io.on("connection", (socket) => {
     console.log(`[Socket Connected] Socket ID: ${socket.id}`);
@@ -157,7 +86,6 @@ io.on("connection", (socket) => {
         const currentSession = onlineUsers.get(socket.id);
         if (currentSession && currentSession.username !== finalUsername) {
             usernameToSocket.delete(currentSession.username);
-            cleanUpOrphanedFiles(currentSession.username);
         }
         // Save mapping
         onlineUsers.set(socket.id, {
@@ -333,7 +261,6 @@ io.on("connection", (socket) => {
             text: `${userSession.username} left the chat room.`,
             timestamp: Date.now()
         });
-        cleanUpOrphanedFiles(userSession.username);
     });
     // 9. Disconnect cleanup
     socket.on("disconnect", () => {
@@ -365,8 +292,6 @@ io.on("connection", (socket) => {
             }
             // Broadcast updated online list
             broadcastOnlineUsers();
-            // Garbage Collect any files in RAM that both users have now disconnected from
-            cleanUpOrphanedFiles(disconnectedUsername);
         }
     });
 });
