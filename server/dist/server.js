@@ -42,20 +42,18 @@ const usernameToSocket = new Map(); // username -> socketId
 const tempFiles = new Map(); // fileId -> TempFile
 // Helper to generate a unique random username
 function generateRandomUsername() {
-    const adjectives = ["Shadow", "Ghost", "Alpha", "RTX", "Cyber", "Phantom", "Rogue", "Nexus", "Vortex", "Cipher", "Spectrum", "Apex", "Frost", "Echo", "Blaze", "Titan"];
-    const nouns = ["X", "One", "Hero", "Knight", "Hunter", "Wolf", "Raven", "Matrix", "Neon", "Quantum", "Byte", "Node", "Link", "Code", "Sync", "Wave"];
+    const words = ["shadow", "ghost", "alpha", "cyber", "rogue", "nexus", "echo", "blaze", "titan", "wolf", "raven", "neon", "byte", "node", "link", "code", "sync", "wave"];
     let attempts = 0;
     while (attempts < 100) {
-        const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
-        const noun = nouns[Math.floor(Math.random() * nouns.length)];
+        const word = words[Math.floor(Math.random() * words.length)];
         const num = Math.floor(10 + Math.random() * 89); // two digit number
-        const username = `${adj}${noun}${num}`;
+        const username = `${word}${num}`;
         if (!usernameToSocket.has(username)) {
             return username;
         }
         attempts++;
     }
-    return `User_${Math.floor(1000 + Math.random() * 8999)}`;
+    return `user${Math.floor(1000 + Math.random() * 8999)}`;
 }
 // Get active participants list in a group room
 function getGroupMembers(roomId) {
@@ -143,7 +141,7 @@ io.on("connection", (socket) => {
     socket.on("register-username", ({ requested }) => {
         let finalUsername = "";
         if (requested && requested.trim()) {
-            const cleanRequested = requested.trim().replace(/[^a-zA-Z0-9]/g, "");
+            const cleanRequested = requested.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
             // If the username is already owned by someone else online
             if (usernameToSocket.has(cleanRequested) && usernameToSocket.get(cleanRequested) !== socket.id) {
                 socket.emit("username-status", { status: "taken", username: cleanRequested });
@@ -183,7 +181,8 @@ io.on("connection", (socket) => {
     });
     // 2. Check if a User is Online
     socket.on("check-username", ({ username }, callback) => {
-        const exists = usernameToSocket.has(username);
+        const cleanUsername = username.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+        const exists = usernameToSocket.has(cleanUsername);
         callback({ exists });
     });
     // 3. Handshake: Initiate Chat SECURE (routes ECDH public keys)

@@ -23,7 +23,9 @@ export interface Message {
   file?: {
     fileId: string;
     encryptedName?: string;
+    nameIv?: string;
     encryptedType?: string;
+    typeIv?: string;
     size: number;
     iv?: string; // missing for unencrypted group files
     decryptedName?: string;
@@ -123,8 +125,7 @@ export function useSocket() {
       setConnected(true);
       setConnectError(null);
       // If we already had a username, register it. Otherwise, request a random one.
-      const storedName = sessionStorage.getItem("netchat_username");
-      newSocket.emit("register-username", { requested: storedName || null });
+      newSocket.emit("register-username", { requested: null });
     });
 
     newSocket.on("disconnect", () => {
@@ -138,7 +139,6 @@ export function useSocket() {
     // Receive assigned username (could be a generated random one or the accepted custom one)
     newSocket.on("username-assigned", ({ username: assignedName }: { username: string }) => {
       setUsername(assignedName);
-      sessionStorage.setItem("netchat_username", assignedName);
       setUsernameStatus("idle");
     });
 
@@ -146,7 +146,6 @@ export function useSocket() {
     newSocket.on("username-status", ({ status, username: checkedName }: { status: "available" | "taken"; username: string }) => {
       if (status === "available") {
         setUsername(checkedName);
-        sessionStorage.setItem("netchat_username", checkedName);
         setUsernameStatus("available");
       } else {
         setUsernameStatus("taken");
@@ -224,8 +223,8 @@ export function useSocket() {
         }
 
         if (msg.file) {
-          const decryptedName = await decryptMessage(sharedKeyRef.current, msg.file.encryptedName, msg.file.iv);
-          const decryptedType = await decryptMessage(sharedKeyRef.current, msg.file.encryptedType, msg.file.iv);
+          const decryptedName = await decryptMessage(sharedKeyRef.current, msg.file.encryptedName, msg.file.nameIv || msg.file.iv || msg.iv);
+          const decryptedType = await decryptMessage(sharedKeyRef.current, msg.file.encryptedType, msg.file.typeIv || msg.file.iv || msg.iv);
           fileData = {
             ...msg.file,
             decryptedName,
@@ -327,16 +326,17 @@ export function useSocket() {
   const changeUsername = (newUsername: string) => {
     if (!socket || !newUsername.trim()) return;
     setUsernameStatus("validating");
-    socket.emit("register-username", { requested: newUsername.trim() });
+    socket.emit("register-username", { requested: newUsername.trim().toLowerCase().replace(/[^a-z0-9]/g, "") });
   };
 
   // Search and initiate chat with another username
   const startChatWith = async (targetUsername: string): Promise<{ success: boolean; error?: string }> => {
     return new Promise((resolve) => {
       if (!socket) return resolve({ success: false, error: "Not connected to server" });
-      if (targetUsername === username) return resolve({ success: false, error: "Cannot chat with yourself" });
+      const cleanTarget = targetUsername.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+      if (cleanTarget === username.toLowerCase()) return resolve({ success: false, error: "Cannot chat with yourself" });
 
-      socket.emit("check-username", { username: targetUsername }, async ({ exists }: { exists: boolean }) => {
+      socket.emit("check-username", { username: cleanTarget }, async ({ exists }: { exists: boolean }) => {
         if (!exists) {
           resolve({ success: false, error: "User is Offline" });
         } else {
@@ -346,11 +346,11 @@ export function useSocket() {
             const myPublicKeyBase64 = await exportPublicKey(localKeyPairRef.current.publicKey);
             
             // Send connection request with our public key
-            socket.emit("initiate-chat-request", { to: targetUsername, peerPublicKey: myPublicKeyBase64 });
+            socket.emit("initiate-chat-request", { to: cleanTarget, peerPublicKey: myPublicKeyBase64 });
             
             // Set partial states, wait for response
             setActiveGroupRoom(null);
-            setActiveChatUser(targetUsername);
+            setActiveChatUser(cleanTarget);
             setActiveChatOnline(true);
             setMessages([]);
             resolve({ success: true });
@@ -603,7 +603,9 @@ export function useSocket() {
           file: {
             fileId: uploadResult.fileId,
             encryptedName: nameEnc.ciphertext,
+            nameIv: nameEnc.iv,
             encryptedType: typeEnc.ciphertext,
+            typeIv: typeEnc.iv,
             size: file.size,
             iv: fileIv,
           },
@@ -618,7 +620,9 @@ export function useSocket() {
           file: {
             fileId: uploadResult.fileId,
             encryptedName: nameEnc.ciphertext,
+            nameIv: nameEnc.iv,
             encryptedType: typeEnc.ciphertext,
+            typeIv: typeEnc.iv,
             size: file.size,
             iv: fileIv,
             decryptedName: file.name,
