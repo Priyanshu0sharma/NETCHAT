@@ -66,9 +66,27 @@ export function useSocket() {
   const localKeyPairRef = useRef<CryptoKeyPair | null>(null);
   const sharedKeyRef = useRef<CryptoKey | null>(null);
 
+  // Stable references for state variables used inside socket listeners to prevent connection recreation
+  const activeChatUserRef = useRef<string | null>(null);
+  const usernameRef = useRef<string>("");
+  const notificationSoundRef = useRef<boolean>(true);
+
+  // Keep refs in sync with state changes
+  useEffect(() => {
+    activeChatUserRef.current = activeChatUser;
+  }, [activeChatUser]);
+
+  useEffect(() => {
+    usernameRef.current = username;
+  }, [username]);
+
+  useEffect(() => {
+    notificationSoundRef.current = notificationSound;
+  }, [notificationSound]);
+
   // Synthesized audio chime using Web Audio API
   const playNotificationSound = () => {
-    if (!notificationSound || typeof window === "undefined") return;
+    if (!notificationSoundRef.current || typeof window === "undefined") return;
     try {
       const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
       const playTone = (freq: number, start: number, duration: number) => {
@@ -137,7 +155,7 @@ export function useSocket() {
 
     // Receive online users list
     newSocket.on("update-online-users", ({ users }: { users: string[] }) => {
-      setOnlineUsersList(users.filter((u) => u !== username && u !== ""));
+      setOnlineUsersList(users.filter((u) => u !== usernameRef.current && u !== ""));
     });
 
     // Handshake 1: Receive initiate request from peer (who looked us up and wants to chat)
@@ -268,7 +286,7 @@ export function useSocket() {
 
     // Listen to typing status from peer (private chat)
     newSocket.on("typing-status", ({ from, isTyping }: { from: string; isTyping: boolean }) => {
-      if (from === activeChatUser) {
+      if (from === activeChatUserRef.current) {
         setIsPeerTyping(isTyping ? from : null);
       }
     });
@@ -292,7 +310,7 @@ export function useSocket() {
 
     // Listen to peer connection updates (private chat)
     newSocket.on("peer-status", ({ username: peerName, online }: { username: string; online: boolean }) => {
-      if (peerName === activeChatUser) {
+      if (peerName === activeChatUserRef.current) {
         setActiveChatOnline(online);
         if (!online) {
           setIsPeerTyping(null);
@@ -303,7 +321,7 @@ export function useSocket() {
     return () => {
       newSocket.close();
     };
-  }, [activeChatUser, username, notificationSound]);
+  }, []);
 
   // Request custom username change
   const changeUsername = (newUsername: string) => {
