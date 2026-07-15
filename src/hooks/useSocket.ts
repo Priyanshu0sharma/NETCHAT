@@ -39,7 +39,7 @@ export interface Message {
   isSystem?: boolean;
 }
 
-const SOCKET_SERVER_URL = process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || "http://localhost:3001";
+const SOCKET_SERVER_URL = (process.env.NEXT_PUBLIC_SOCKET_SERVER_URL || "http://localhost:3001").replace(/\/$/, "");
 
 export function useSocket() {
   const [socket, setSocket] = useState<Socket | null>(null);
