@@ -39,3 +39,25 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+Thumbs.db
+ehthumbs.db
+
+# Editor directories
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Local environment and secrets
+.env
+.env.local
+.env.*.local
+
+# Logs & debug artifacts
+*.log
+
+# Dependencies
+node_modules/
+.npm/
+.eslintcache
